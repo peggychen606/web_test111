@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Tasks</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons for modern UI iconography -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Google Fonts: Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: radial-gradient(circle at 15% 50%, #0d1627, #060913);
+            color: #ffffff;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Hide scrollbar for clean UI but keep functionality */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+
+        /* Core glassmorphism utility class */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Subtle glowing shadow for buttons and icons */
+        .glow-shadow {
+            box-shadow: 0 0 24px rgba(59, 130, 246, 0.4);
+        }
+
+        /* Smooth fade-in/out transitions */
+        .fade-transition {
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        
+        .hide-view {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
+            position: absolute;
+        }
+
+        .show-view {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1);
+            position: relative;
+        }
+
+        /* Checkbox animation */
+        .check-anim {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="selection:bg-blue-500/30">
+
+    <div id="login-view" class="glass-panel max-w-[340px] w-full mx-4 rounded-[2rem] p-10 flex flex-col items-center show-view fade-transition z-20">
+        <!-- App Icon -->
+        <div class="w-16 h-16 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-2xl flex items-center justify-center mb-6 glow-shadow">
+            <i class="ph ph-list-dashes text-3xl font-bold text-white"></i>
+        </div>
+        
+        <!-- Welcome Text -->
+        <h1 class="text-[22px] font-bold mb-2 tracking-wide text-white">Cloud Tasks</h1>
+        <p class="text-xs text-gray-400 mb-10 text-center tracking-wider">跨裝置即時同步，讓效率無所不在</p>
+        
+        <!-- Login Button -->
+        <button id="login-btn" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-xl py-3.5 font-medium transition-all glow-shadow flex items-center justify-center gap-2 text-sm">
+            <span>立即開始使用</span>
+            <i class="ph-fill ph-sparkle"></i>
+        </button>
+
+        <!-- Loading indicator for login -->
+        <div id="login-loading" class="hidden w-full py-3.5 flex items-center justify-center gap-2 text-blue-400 text-sm">
+            <i class="ph ph-spinner animate-spin text-lg"></i>
+            <span>連線中...</span>
+        </div>
+        
+        <!-- Error Message Container -->
+        <p id="error-msg" class="text-red-400 text-xs mt-4 hidden text-center"></p>
+    </div>
+
+    <div id="main-view" class="glass-panel max-w-[420px] w-full mx-4 rounded-[2rem] p-6 sm:p-8 flex-col gap-6 h-[85vh] max-h-[800px] hide-view fade-transition z-10 flex">
+        
+        <!-- Header: App Title & User Sync Status -->
+        <div class="flex justify-between items-center shrink-0">
+            <div class="flex items-center gap-3.5">
+                <div class="w-11 h-11 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center glow-shadow">
+                    <i class="ph ph-list-dashes text-xl font-bold text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-wide text-white">我的任務</h1>
+                    <div class="text-[10px] text-green-400 flex items-center gap-1.5 font-mono mt-0.5 opacity-80">
+                        <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]"></span>
+                        SYNCED: <span id="uid-display" class="tracking-wider">...</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Logout Button -->
+            <button id="logout-btn" class="w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="登出">
+                <i class="ph ph-sign-out text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Progress Card -->
+        <div class="glass-panel rounded-2xl p-5 relative overflow-hidden shrink-0 border-white/5 bg-white/[0.02]">
+            <div class="relative z-10">
+                <p class="text-xs text-gray-400 mb-1 font-medium tracking-wide">今日完成率</p>
+                <div class="flex items-baseline gap-1">
+                    <h2 id="progress-text" class="text-[32px] font-bold text-white tracking-tight">0%</h2>
+                </div>
+            </div>
+            <!-- Progress Bar Background Fill -->
+            <div class="absolute bottom-0 left-0 h-1.5 bg-gradient-to-r from-blue-600 to-indigo-500 transition-all duration-700 ease-out" id="progress-bar" style="width: 0%"></div>
+            <!-- Decorative Trophy Icon -->
+            <i class="ph ph-trophy absolute right-2 -bottom-4 text-[80px] text-white/[0.03] rotate-[-10deg]"></i>
+        </div>
+
+        <!-- Task Input Area -->
+        <div class="flex items-center glass-panel rounded-[14px] p-1.5 focus-within:bg-white/5 focus-within:border-white/20 transition-all shrink-0 bg-white/[0.02]">
+            <input type="text" id="task-input" placeholder="輸入新任務..." class="bg-transparent border-none outline-none flex-1 px-3.5 text-[15px] text-gray-100 placeholder-gray-500 font-light">
+            <button id="add-btn" class="bg-[#1e3266] hover:bg-blue-600 active:bg-blue-700 w-9 h-9 rounded-xl flex items-center justify-center transition-colors text-blue-300 hover:text-white shadow-inner border border-blue-500/20">
+                <i class="ph ph-plus text-lg font-bold"></i>
+            </button>
+        </div>
+
+        <!-- Task List Container -->
+        <div id="task-list" class="flex flex-col gap-2.5 flex-1 overflow-y-auto pr-1 pb-2 custom-scrollbar">
+            <!-- Empty State (Shown when no tasks exist) -->
+            <div id="empty-state" class="flex flex-col items-center justify-center h-full text-gray-500 gap-4 opacity-0 transition-opacity duration-300 hidden">
+                <div class="w-14 h-14 bg-white/[0.03] border border-white/5 rounded-full flex items-center justify-center">
+                    <i class="ph-fill ph-sparkle text-2xl text-gray-600"></i>
+                </div>
+                <p class="text-[13px] tracking-wide">萬事俱備，只欠任務！</p>
+            </div>
+            <!-- Dynamic tasks will be injected here -->
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Environment variables provided by Canvas
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'cloud-tasks-app';
+        let firebaseConfig = {};
+        
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+                apiKey: "demo-key",
+                projectId: "demo-project"
+            };
+        } catch (e) {
+            console.error("Firebase config parsing error:", e);
+        }
+
+        // Initialize Firebase Services
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // DOM Elements
+        const views = {
+            login: document.getElementById('login-view'),
+            main: document.getElementById('main-view')
+        };
+        const elements = {
+            loginBtn: document.getElementById('login-btn'),
+            loginLoading: document.getElementById('login-loading'),
+            logoutBtn: document.getElementById('logout-btn'),
+            errorMsg: document.getElementById('error-msg'),
+            uidDisplay: document.getElementById('uid-display'),
+            taskInput: document.getElementById('task-input'),
+            addBtn: document.getElementById('add-btn'),
+            taskList: document.getElementById('task-list'),
+            emptyState: document.getElementById('empty-state'),
+            progressText: document.getElementById('progress-text'),
+            progressBar: document.getElementById('progressBar') // Used inline styling id
+        };
+
+        let unsubscribeSnapshot = null;
+        let currentUser = null;
+        let currentTasks = [];
+
+        // Listen to Auth State Changes (Flow: B -> C or D)
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                // Update UI for logged-in state
+                elements.uidDisplay.textContent = user.uid.substring(0, 8) + '...';
+                switchView('main');
+                elements.loginBtn.classList.remove('hidden');
+                elements.loginLoading.classList.add('hidden');
+                
+                // Start syncing data
+                startTaskSync(user.uid);
+            } else {
+                currentUser = null;
+                switchView('login');
+                if (unsubscribeSnapshot) {
+                    unsubscribeSnapshot();
+                    unsubscribeSnapshot = null;
+                }
+                currentTasks = [];
+                renderTasks();
+            }
+        });
+
+        // Login Action
+        elements.loginBtn.addEventListener('click', async () => {
+            elements.loginBtn.classList.add('hidden');
+            elements.loginLoading.classList.remove('hidden');
+            elements.errorMsg.classList.add('hidden');
+            
+            try {
+                // Priority: Use custom token if available, else anonymous login
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Login failed:", error);
+                elements.errorMsg.textContent = "登入失敗，請稍後再試。";
+                elements.errorMsg.classList.remove('hidden');
+                elements.loginBtn.classList.remove('hidden');
+                elements.loginLoading.classList.add('hidden');
+            }
+        });
+
+        // Logout Action
+        elements.logoutBtn.addEventListener('click', () => {
+            signOut(auth).catch(err => console.error("Logout error:", err));
+        });
+
+        // View Transition Helper
+        function switchView(viewName) {
+            if (viewName === 'main') {
+                views.login.classList.remove('show-view');
+                views.login.classList.add('hide-view');
+                // Slight delay for smooth sequenced animation
+                setTimeout(() => {
+                    views.main.classList.remove('hide-view');
+                    views.main.classList.add('show-view');
+                }, 300);
+            } else {
+                views.main.classList.remove('show-view');
+                views.main.classList.add('hide-view');
+                setTimeout(() => {
+                    views.login.classList.remove('hide-view');
+                    views.login.classList.add('show-view');
+                }, 300);
+            }
+        }
+
+        // Firestore Path Generator Rule 1: Private user data
+        const getTasksCollection = (userId) => collection(db, 'artifacts', appId, 'users', userId, 'tasks');
+        const getTaskDoc = (userId, taskId) => doc(db, 'artifacts', appId, 'users', userId, 'tasks', taskId);
+
+        // Add New Task
+        const handleAddTask = async () => {
+            if (!currentUser) return;
+            const text = elements.taskInput.value.trim();
+            if (!text) return;
+
+            const inputField = elements.taskInput;
+            const btn = elements.addBtn;
+            
+            inputField.disabled = true;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin"></i>';
+
+            try {
+                const newTask = {
+                    text: text,
+                    completed: false,
+                    createdAt: Date.now()
+                };
+                await addDoc(getTasksCollection(currentUser.uid), newTask);
+                inputField.value = '';
+            } catch (error) {
+                console.error("Error adding task:", error);
+            } finally {
+                inputField.disabled = false;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-plus text-lg font-bold"></i>';
+                inputField.focus();
+            }
+        };
+
+        elements.addBtn.addEventListener('click', handleAddTask);
+        elements.taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleAddTask();
+        });
+
+        // Toggle Task Status
+        window.toggleTask = async (taskId, currentStatus) => {
+            if (!currentUser) return;
+            try {
+                await updateDoc(getTaskDoc(currentUser.uid, taskId), {
+                    completed: !currentStatus
+                });
+            } catch (error) {
+                console.error("Error updating task:", error);
+            }
+        };
+
+        // Delete Task
+        window.deleteTask = async (taskId) => {
+            if (!currentUser) return;
+            try {
+                await deleteDoc(getTaskDoc(currentUser.uid, taskId));
+            } catch (error) {
+                console.error("Error deleting task:", error);
+            }
+        };
+
+        // Sync Tasks from Firestore Realtime
+        function startTaskSync(userId) {
+            const tasksCol = getTasksCollection(userId);
+            
+            // Rule 2: No complex queries. Fetch all and sort locally.
+            unsubscribeSnapshot = onSnapshot(tasksCol, (snapshot) => {
+                const tasks = [];
+                snapshot.forEach((doc) => {
+                    tasks.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // Sort by creation time descending (newest top)
+                currentTasks = tasks.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                renderTasks();
+            }, (error) => {
+                console.error("Firestore sync error:", error);
+            });
+        }
+
+        // Render Task List and Update Progress
+        function renderTasks() {
+            // Update Empty State
+            if (currentTasks.length === 0) {
+                elements.emptyState.classList.remove('hidden');
+                setTimeout(() => elements.emptyState.classList.remove('opacity-0'), 10);
+                elements.taskList.innerHTML = '';
+                elements.taskList.appendChild(elements.emptyState);
+                updateProgress(0, 0);
+                return;
+            }
+
+            elements.emptyState.classList.add('opacity-0');
+            setTimeout(() => elements.emptyState.classList.add('hidden'), 300);
+            
+            elements.taskList.innerHTML = '';
+            
+            let completedCount = 0;
+
+            currentTasks.forEach(task => {
+                if (task.completed) completedCount++;
+
+                const taskEl = document.createElement('div');
+                const isDone = task.completed;
+                
+                taskEl.className = `group flex items-center justify-between p-3.5 rounded-xl border transition-all duration-300 cursor-pointer hover:bg-white/[0.05]
+                    ${isDone ? 'bg-white/[0.02] border-transparent opacity-60' : 'bg-white/[0.04] border-white/5'}`;
+                
+                taskEl.innerHTML = `
+                    <div class="flex items-center gap-3.5 flex-1 overflow-hidden" onclick="toggleTask('${task.id}', ${isDone})">
+                        <div class="check-anim w-5 h-5 rounded-[6px] border flex items-center justify-center shrink-0 
+                            ${isDone ? 'bg-blue-500 border-blue-500' : 'border-gray-500/70 group-hover:border-blue-400'}">
+                            ${isDone ? '<i class="ph ph-check text-white text-xs font-bold"></i>' : ''}
+                        </div>
+                        <span class="text-[14px] truncate transition-all duration-300 select-none
+                            ${isDone ? 'line-through text-gray-500' : 'text-gray-200'}">
+                            ${escapeHTML(task.text)}
+                        </span>
+                    </div>
+                    <button class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover:opacity-100 transition-all focus:opacity-100" 
+                        onclick="deleteTask('${task.id}')" title="刪除">
+                        <i class="ph ph-trash text-lg"></i>
+                    </button>
+                `;
+                elements.taskList.appendChild(taskEl);
+            });
+
+            updateProgress(completedCount, currentTasks.length);
+        }
+
+        // Calculate and animate progress bar
+        function updateProgress(completed, total) {
+            const percentage = total === 0 ? 0 : Math.round((completed / total) * 100);
+            
+            // Animate number (basic version)
+            elements.progressText.textContent = `${percentage}%`;
+            
+            // Update width
+            const pBar = document.getElementById('progress-bar');
+            if (pBar) pBar.style.width = `${percentage}%`;
+        }
+
+        // Basic HTML Escaping to prevent XSS
+        function escapeHTML(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+    </script>
+</body>
+</html>
